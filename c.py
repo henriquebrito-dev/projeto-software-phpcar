@@ -2,9 +2,9 @@ from flask import Flask, render_template, request, flash, redirect
 import pyodbc
 
 app = Flask(__name__)
-app.secret_key = "php_soluctions_key_2024" # Segurança para as mensagens de aviso
+app.secret_key = "php_soluctions_key_2024"
 
-# Suas configurações originais de conexão
+# Configurações de conexão (Centralizadas aqui)
 config_db = (
     'DRIVER={ODBC Driver 17 for SQL Server};'
     'SERVER=localhost,1401;'
@@ -13,44 +13,42 @@ config_db = (
     'PWD=hgservices23'
 )
 
-# Listas de opções que você usava no script original
 OPCOES_COMBUSTIVEL = ['Gasolina', 'Álcool', 'Flex', 'Diesel', 'GNV', 'Elétrico', 'Híbrido']
 OPCOES_TRANSMISSAO = ['Manual', 'Automático', 'CVT', 'Automatizado']
 
-@app.route('/', methods=['GET', 'POST'])
+# --- ROTA 1: MENU PRINCIPAL (DIRECIONADOR) ---
+@app.route('/')
 def index():
+    return render_template('index.html')
+
+# --- ROTA 2: FORMULÁRIO DE CADASTRO ---
+@app.route('/cadastrar', methods=['GET', 'POST'])
+def cadastrar():
     if request.method == 'POST':
-        # Coleta de dados do formulário (Substitui o obter_input)
+        # Toda a sua lógica de coleta de dados
         marca = request.form.get('marca').strip()
         modelo = request.form.get('modelo').strip()
         versao = request.form.get('versao').strip()
         
-        # Tratamento de anos (como você fazia: removendo pontos e convertendo)
         try:
             ano_fab = int(request.form.get('ano_fab').replace('.', ''))
             ano_mod = int(request.form.get('ano_mod').replace('.', ''))
         except:
             flash("❌ Erro nos campos de Ano. Use apenas números.", "danger")
-            return redirect('/')
+            return redirect('/cadastrar')
 
         cor = request.form.get('cor').strip()
-        km = request.form.get('km').strip() # Mantido como texto conforme seu original
+        km = request.form.get('km').strip()
         combustivel = request.form.get('combustivel')
         transmissao = request.form.get('transmissao')
         placa = request.form.get('placa').strip()
-        preco = request.form.get('preco').strip() # Mantido como texto conforme seu original
+        preco = request.form.get('preco').strip()
         descricao = request.form.get('descricao').strip()
-
-        # Validação de segurança (Caso alguém tente burlar o formulário)
-        if combustivel not in OPCOES_COMBUSTIVEL or transmissao not in OPCOES_TRANSMISSAO:
-            flash("❌ Opção de combustível ou transmissão inválida!", "danger")
-            return redirect('/')
 
         # Inserção no Banco de Dados
         try:
             conn = pyodbc.connect(config_db)
             cursor = conn.cursor()
-            
             sql = """
                 INSERT INTO veiculos (
                     marca, modelo, versao, ano_fabricacao, ano_modelo, 
@@ -58,22 +56,81 @@ def index():
                     placa_final, preco, descricao
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
-            
             cursor.execute(sql, (marca, modelo, versao, ano_fab, ano_mod, cor, km, 
                                 combustivel, transmissao, placa, preco, descricao))
             conn.commit()
             conn.close()
-            
-            flash(f"✅ {marca} {modelo} cadastrado com sucesso! (Preço: R$ {preco})", "success")
-            
+            flash(f"✅ {marca} {modelo} cadastrado com sucesso!", "success")
         except Exception as e:
             flash(f"❌ Erro ao gravar no banco: {e}", "danger")
 
-        return redirect('/')
+        return redirect('/cadastrar')
 
-    # Carrega a página passando as listas para o HTML criar os menus automáticos
-    return render_template('index.html', combustiveis=OPCOES_COMBUSTIVEL, transmissoes=OPCOES_TRANSMISSAO)
+    return render_template('cadastrar.html', combustiveis=OPCOES_COMBUSTIVEL, transmissoes=OPCOES_TRANSMISSAO)
+
+@app.route('/consultar', methods=['GET', 'POST'])
+def consultar():
+    try:
+        conn = pyodbc.connect(config_db)
+        cursor = conn.cursor()
+        
+        # 1. Pega os dados e LIMPA TUDO (ponto e vírgula) que o navegador enviar
+        busca = request.args.get('busca', '').strip()
+        preco_min = request.args.get('preco_min', '').replace('.', '').replace(',', '').strip()
+        preco_max = request.args.get('preco_max', '').replace('.', '').replace(',', '').strip()
+        ano = request.args.get('ano', '').strip()
+
+        # SQL com apelidos para o HTML
+        sql = """
+            SELECT 
+                marca AS marca, 
+                modelo AS modelo, 
+                versao AS versao, 
+                cor AS cor, 
+                ano_fabricacao AS ano_fab, 
+                ano_modelo AS ano_mod, 
+                quilometragem AS km, 
+                preco AS preco 
+            FROM veiculos WHERE 1=1
+        """
+        params = []
+
+        if busca:
+            sql += " AND (marca LIKE ? OR modelo LIKE ?)"
+            params.extend([f'%{busca}%', f'%{busca}%'])
+
+        # Lógica de Preço Blindada no SQL também
+        if preco_min:
+            sql += " AND CAST(REPLACE(REPLACE(preco, '.', ''), ',', '.') AS DECIMAL(18,2)) >= ?"
+            params.append(preco_min)
+        if preco_max:
+            sql += " AND CAST(REPLACE(REPLACE(preco, '.', ''), ',', '.') AS DECIMAL(18,2)) <= ?"
+            params.append(preco_max)
+
+        if ano:
+            sql += " AND (ano_fabricacao = ? OR ano_modelo = ?)"
+            params.extend([ano, ano])
+
+        cursor.execute(sql, params)
+        
+        columns = [column[0] for column in cursor.description]
+        veiculos = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        conn.close()
+
+        return render_template('consultar.html', veiculos=veiculos)
+    except Exception as e:
+        return f"Erro: {e}"
+
+# --- ROTAS FUTURAS (AC 3) ---
+@app.route('/excluir')
+def excluir():
+    return "<h1>Página de Exclusão</h1><p>Em desenvolvimento...</p>"
+
+@app.route('/vendas')
+def vendas():
+    return "<h1>Página de Vendas</h1><p>Em desenvolvimento...</p>"
+
+
 
 if __name__ == '__main__':
-    # Adicionamos o parâmetro port=5001
-    app.run(debug=True, port=5001) 
+    app.run(debug=True, port=5001)
