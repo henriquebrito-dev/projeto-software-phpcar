@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHP Car | Registro de Vendas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #0b0f1a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --accent-green: #10b981;
+            --accent-blue: #38bdf8;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body { 
+            background: radial-gradient(circle at top right, #1e293b, #0b0f1a);
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 25px;
+            padding: 40px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        }
+
+        .form-control, .form-select {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--glass-border);
+            color: white !important;
+            padding: 12px;
+            border-radius: 12px;
+        }
+
+        .form-control:focus {
+            background: rgba(15, 23, 42, 0.8);
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+        }
+
+        /* LISTA DE SUGESTÕES CUSTOMIZADA - RESOLVE O VISUAL FEIO */
+        #sugestoesPlaca {
+            z-index: 1000;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--accent-blue);
+            border-radius: 12px;
+            margin-top: 5px;
+            max-height: 250px;
+            overflow-y: auto;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.9);
+        }
+
+        .sugestao-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            color: #f8fafc;
+        }
+
+        .sugestao-item:hover {
+            background: rgba(56, 189, 248, 0.2);
+            padding-left: 30px;
+            color: var(--accent-blue);
+        }
+
+        .btn-success-pro {
+            background: var(--accent-green);
+            border: none;
+            font-weight: 800;
+            padding: 15px;
+            border-radius: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+
+        .btn-success-pro:hover {
+            transform: translateY(-3px);
+            filter: brightness(1.2);
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .back-link {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .back-link:hover { color: var(--accent-blue); }
+
+        #sugestoesPlaca::-webkit-scrollbar { width: 6px; }
+        #sugestoesPlaca::-webkit-scrollbar-thumb { background: var(--accent-blue); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            
+            <a href="/" class="back-link mb-4">
+                <i class="fa-solid fa-circle-arrow-left fa-xl"></i> Painel de Controle
+            </a>
+
+            <div class="glass-card">
+                <div class="text-center mb-5">
+                    <div class="mb-3 d-inline-block p-3" style="background: rgba(16, 185, 129, 0.1); border-radius: 50%;">
+                        <i class="fa-solid fa-hand-holding-dollar" style="font-size: 3rem; color: var(--accent-green)"></i>
+                    </div>
+                    <h2 class="fw-bold mb-0">REGISTRAR VENDA</h2>
+                    <p class="text-muted small text-uppercase letter-spacing-2">Baixa Automática no SQL Server</p>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category }} bg-dark text-light border-0 shadow-sm mb-4">{{ message }}</div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <form action="/registrar_venda" method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-4 position-relative">
+                            <label class="form-label fw-bold">Placa do Veículo</label>
+                            <input type="text" id="inputPlaca" name="placa" class="form-control" 
+                                   placeholder="Digite a placa..." autocomplete="off" required>
+                            
+                            <div id="sugestoesPlaca" class="position-absolute w-100 d-none">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <label class="form-label fw-bold">Valor da Venda (R$)</label>
+                            <input type="text" name="valor" class="form-control" placeholder="0.000,00" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Método de Pagamento</label>
+                        <select name="metodo_pagamento" class="form-select">
+                            <option value="Pix">💰 Pix (À Vista)</option>
+                            <option value="Cartão de Crédito">💳 Cartão de Crédito</option>
+                            <option value="Financiamento">🏛️ Financiamento Bancário</option>
+                            <option value="Dinheiro">💵 Dinheiro Espécie</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-5">
+                        <label class="form-label fw-bold">Vendedor</label>
+                        <input type="text" name="vendedor" class="form-control" value="Henrique Brito" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-success-pro w-100 shadow-lg">
+                        <i class="fa-solid fa-file-signature me-2"></i> Confirmar Transação
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Correção para o VS Code não marcar erro: usamos JSON.parse com aspas simples
+    const todasAsPlacas = JSON.parse('{{ placas_sugeridas | tojson | safe }}');
+    
+    const inputPlaca = document.getElementById('inputPlaca');
+    const boxSugestoes = document.getElementById('sugestoesPlaca');
+
+    // Lógica de Autocomplete Customizado
+    inputPlaca.addEventListener('input', function() {
+        const digitado = this.value.toUpperCase().replace("-", "");
+        boxSugestoes.innerHTML = '';
+        
+        if (digitado.length > 0) {
+            // Filtra ignorando o traço para facilitar a busca
+            const filtradas = todasAsPlacas.filter(p => p.replace("-", "").includes(digitado));
+            
+            if (filtradas.length > 0) {
+                boxSugestoes.classList.remove('d-none');
+                filtradas.forEach(placa => {
+                    const div = document.createElement('div');
+                    div.className = 'sugestao-item';
+                    div.innerHTML = `<i class="fa-solid fa-car-side me-3 text-info"></i> <strong>${placa}</strong>`;
+                    
+                    div.onclick = function() {
+                        inputPlaca.value = placa;
+                        boxSugestoes.classList.add('d-none');
+                    };
+                    boxSugestoes.appendChild(div);
+                });
+            } else {
+                boxSugestoes.classList.add('d-none');
+            }
+        } else {
+            boxSugestoes.classList.add('d-none');
+        }
+    });
+
+    // Fecha se clicar fora
+    document.addEventListener('click', function(e) {
+        if (e.target !== inputPlaca) {
+            boxSugestoes.classList.add('d-none');
+        }
+    });
+
+    // Máscara de Placa (ABC-1234)
+    inputPlaca.addEventListener('input', (e) => {
+        let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (v.length > 3) {
+            v = v.substring(0, 3) + "-" + v.substring(3, 7);
+        }
+        e.target.value = v.substring(0, 8);
+    });
+</script>
+
+</body>
+</html>
